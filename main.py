@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 import shlex
 from termcolor import colored
 import os
+import text_processing as tp
+import image_selector
 
 TITLE = R"""$$\      $$\ $$\   $$\ $$$$$$$\  $$\      $$\ $$\   $$\ $$$$$$$\  
 $$$\    $$$ |$$ |  $$ |$$  __$$\ $$$\    $$$ |$$ |  $$ |$$  __$$\ 
@@ -44,17 +46,24 @@ class Input:
         print(format_help)
 
     def update(self) -> bool:
-        user_input = input("> ")
-        args = self.arg_parser.parse_args(shlex.split(user_input))
-        #print(args)
-        if args.help:
-            self.print_help()
-        elif args.exit:
-            return False
-        elif args.clear:
-            clear_console()
-        elif len(user_input.strip()) > 0:
-            pass
+        user_input = input("> ").strip()
+        if user_input.startswith("--"):
+            args = self.arg_parser.parse_args(shlex.split(user_input))
+            if args.help:
+                self.print_help()
+            elif args.exit:
+                return False
+            elif args.clear:
+                clear_console()
+        elif len(user_input) > 0:
+            user_wants_img = input("Do you want to provide your own image path for your message feelings?(y/N)").strip().lower()
+            img_path = ""
+            if user_wants_img == "Y":
+                im_path = input("Provide path: ")
+            else:
+                img_path = image_selector.select_image(tp.analyze_sentiment(user_input))
+            
+            print("This is image path: " + img_path)
         return True
 
 def main():
