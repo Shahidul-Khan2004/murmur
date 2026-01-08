@@ -15,18 +15,24 @@ from PIL import Image, ImageOps
 
 def generate_qr_code_from_text(
 	text: str,
+	image_path: str | Path | None = None,
 	*,
 	max_words: int = 250,
 	error_correction: str = "Q",
 	box_size: int = 10,
 	border: int = 0,
 ) -> bytes:
-	"""Generate a QR code PNG (as bytes) from text.
+	"""Generate a QR (PNG bytes) from text.
+
+	If an image is provided, this generates a "QR art" style code where the
+	modules are colored using the image.
 
 	Parameters
 	----------
 	text:
 		The text content to encode.
+	image_path:
+		Optional image path used to stylize the QR code.
 
 	This function does not write to disk; it returns the PNG bytes so other
 	functions can store, transmit, or further process the QR code.
@@ -74,11 +80,23 @@ def generate_qr_code_from_text(
 	try:
 		qr.add_data(text)
 		qr.make(fit=True)
-		img = qr.make_image(fill_color="black", back_color="white")
+		if image_path is None:
+			img = qr.make_image(fill_color="black", back_color="white")
+		else:
+			from qrcode.image.styledpil import StyledPilImage
+			from qrcode.image.styles.colormasks import ImageColorMask
+			from qrcode.image.styles.moduledrawers import RoundedModuleDrawer
+
+			img = qr.make_image(
+				image_factory=StyledPilImage,
+				module_drawer=RoundedModuleDrawer(),
+				color_mask=ImageColorMask(color_mask_path=str(image_path)),
+				back_color=(255, 255, 255),
+			)
 	except Exception as exc:  # pragma: no cover
 		raise ValueError(
-			"Text could not be encoded into a QR code with the given settings. "
-			"Try using a lower error correction level (e.g. 'L') or shortening the text."
+			"QR could not be generated with the given settings. "
+			"Try adjusting error_correction/border or shortening the text."
 		) from exc
 
 	buf = BytesIO()
@@ -91,12 +109,12 @@ def merge_qr_into_image(
 	image: str | Path | bytes,
 	*,
 	position: str = "bottom-right",
-	qr_scale: float = 0.02,
+	qr_scale: float = 0.12,
 	margin_px: int = 16,
-	quiet_zone_px: int = 2,
-	qr_opacity: float = 0.32,
-	plate_opacity: float = 0.20,
-	min_qr_px: int = 96,
+	quiet_zone_px: int = 6,
+	qr_opacity: float = 0.4,
+	plate_opacity: float = 0.70,
+	min_qr_px: int = 140,
 	output_format: str = "PNG",
 	jpeg_quality: int = 90,
 ) -> bytes:
@@ -148,10 +166,6 @@ def merge_qr_into_image(
 
 	qr_img = Image.open(BytesIO(qr_png)).convert("RGBA")
 
-	# Make a crisp black/white representation of the QR.
-	lum = qr_img.convert("L")
-	bw = lum.point(lambda p: 255 if p > 128 else 0, mode="L")
-
 	# Determine QR target size within the base image.
 	available = max(1, min(base_w, base_h) - 2 * margin_px)
 	target = int(min(base_w, base_h) * qr_scale)
@@ -164,36 +178,45 @@ def merge_qr_into_image(
 	except AttributeError:  # pragma: no cover
 		nearest = Image.NEAREST
 
-	bw = bw.resize((target, target), resample=nearest)
+	qr_resized = qr_img.resize((target, target), resample=nearest)
 
-	# Add a quiet zone around the QR.
+	# Add a quiet zone around the QR (transparent, so background shows).
 	if quiet_zone_px > 0:
-		bw = ImageOps.expand(bw, border=int(quiet_zone_px), fill=255)
+		qr_resized = ImageOps.expand(qr_resized, border=int(quiet_zone_px), fill=(255, 255, 255, 255))
 
-	qw, qh = bw.size
+	qw, qh = qr_resized.size
 	if qw + 2 * margin_px > base_w or qh + 2 * margin_px > base_h:
 		scale = min(
 			(base_w - 2 * margin_px) / max(1, qw),
 			(base_h - 2 * margin_px) / max(1, qh),
 		)
 		new_size = (max(1, int(qw * scale)), max(1, int(qh * scale)))
-		bw = bw.resize(new_size, resample=nearest)
-		qw, qh = bw.size
+		qr_resized = qr_resized.resize(new_size, resample=nearest)
+		qw, qh = qr_resized.size
 
-	# Mask for black modules.
-	black_mask = bw.point(lambda p: 255 if p < 128 else 0, mode="L")
+	# Create a mask: white parts become transparent, dark parts stay visible.
+	# Identify "white" pixels (high luminance) and make them transparent.
+	lum = qr_resized.convert("L")
+	# Threshold: pixels above 200 luminance are considered "white background"
+	module_mask = lum.point(lambda p: 255 if p < 200 else 0, mode="L")
 
-	# Build overlay: a subtle white plate + semi-opaque black modules.
+	# Build overlay with only the dark (colored) modules visible.
 	overlay = Image.new("RGBA", (qw, qh), (0, 0, 0, 0))
+
+	# Optional: add a subtle plate only behind the dark modules for contrast.
 	if plate_opacity > 0:
 		plate_alpha = max(0, min(255, int(255 * plate_opacity)))
 		plate = Image.new("RGBA", (qw, qh), (255, 255, 255, plate_alpha))
-		overlay.alpha_composite(plate)
+		# Only show plate where modules are (not in white areas)
+		overlay.paste(plate, (0, 0), mask=module_mask)
 
+	# Paste the colored QR modules (only dark parts) with opacity.
 	if qr_opacity > 0:
-		qr_alpha = max(0, min(255, int(255 * qr_opacity)))
-		black_layer = Image.new("RGBA", (qw, qh), (0, 0, 0, qr_alpha))
-		overlay.paste(black_layer, (0, 0), mask=black_mask)
+		r, g, b, _ = qr_resized.split()
+		# Combine module mask with opacity
+		module_alpha = module_mask.point(lambda p: int(p * qr_opacity))
+		qr_modules_only = Image.merge("RGBA", (r, g, b, module_alpha))
+		overlay.alpha_composite(qr_modules_only)
 
 	pos = position.lower().strip().replace("_", "-")
 	pos_map = {
