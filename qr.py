@@ -17,9 +17,9 @@ def generate_qr_code_from_text(
 	text: str,
 	*,
 	max_words: int = 250,
-	error_correction: str = "L",
+	error_correction: str = "Q",
 	box_size: int = 10,
-	border: int = 4,
+	border: int = 0,
 ) -> bytes:
 	"""Generate a QR code PNG (as bytes) from text.
 
@@ -90,13 +90,13 @@ def merge_qr_into_image(
 	qr_png: bytes,
 	image: str | Path | bytes,
 	*,
-	position: str = "br",
-	qr_scale: float = 0.22,
-	margin_px: int = 24,
-	quiet_zone_px: int = 8,
-	qr_opacity: float = 0.55,
-	plate_opacity: float = 0.35,
-	min_qr_px: int = 200,
+	position: str = "bottom-right",
+	qr_scale: float = 0.02,
+	margin_px: int = 16,
+	quiet_zone_px: int = 2,
+	qr_opacity: float = 0.32,
+	plate_opacity: float = 0.20,
+	min_qr_px: int = 96,
 	output_format: str = "PNG",
 	jpeg_quality: int = 90,
 ) -> bytes:
@@ -109,7 +109,7 @@ def merge_qr_into_image(
 	image:
 		Base image as a path or raw bytes.
 	position:
-		"br", "bl", "tr", "tl", or "center".
+		"br", "bl", "tr", "tl", "center", or full names like "bottom-right".
 	qr_scale:
 		QR size as a fraction of the smaller base dimension.
 	margin_px:
@@ -195,19 +195,38 @@ def merge_qr_into_image(
 		black_layer = Image.new("RGBA", (qw, qh), (0, 0, 0, qr_alpha))
 		overlay.paste(black_layer, (0, 0), mask=black_mask)
 
-	pos = position.lower().strip()
-	if pos == "br":
+	pos = position.lower().strip().replace("_", "-")
+	pos_map = {
+		"br": "bottom-right",
+		"bottom-right": "bottom-right",
+		"bottomright": "bottom-right",
+		"bl": "bottom-left",
+		"bottom-left": "bottom-left",
+		"bottomleft": "bottom-left",
+		"tr": "top-right",
+		"top-right": "top-right",
+		"topright": "top-right",
+		"tl": "top-left",
+		"top-left": "top-left",
+		"topleft": "top-left",
+		"center": "center",
+	}
+	pos = pos_map.get(pos)
+	if pos == "bottom-right":
 		x, y = base_w - qw - margin_px, base_h - qh - margin_px
-	elif pos == "bl":
+	elif pos == "bottom-left":
 		x, y = margin_px, base_h - qh - margin_px
-	elif pos == "tr":
+	elif pos == "top-right":
 		x, y = base_w - qw - margin_px, margin_px
-	elif pos == "tl":
+	elif pos == "top-left":
 		x, y = margin_px, margin_px
 	elif pos == "center":
 		x, y = (base_w - qw) // 2, (base_h - qh) // 2
 	else:
-		raise ValueError('position must be one of "br", "bl", "tr", "tl", "center"')
+		raise ValueError(
+			'position must be one of "br", "bl", "tr", "tl", "center" '
+			'or "bottom-right", "bottom-left", "top-right", "top-left"'
+		)
 
 	out = base.copy()
 	out.alpha_composite(overlay, (x, y))
