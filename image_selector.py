@@ -18,20 +18,19 @@ def get_images_from_folder(folder: str) -> list[str]:
 
 def select_image(mood: str) -> str:
     """
-    Randomly select one image from a folder based on mood.
+    Randomly select one image path from a folder based on mood.
     Folders: 'images/positive', 'images/negative', 'images/neutral'
     Returns:
         str: Path of selected image
     """
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     mood_folders = {
-        'positive': 'images/positive',
-        'negative': 'images/negative',
-        'neutral': 'images/neutral'
+        'positive': os.path.join(base_dir, 'images/positive'),
+        'negative': os.path.join(base_dir, 'images/negative'),
+        'neutral': os.path.join(base_dir, 'images/neutral')
     }
 
-    folder = mood_folders.get(mood.lower())
-    if not folder or not os.path.exists(folder):
-        raise ValueError(f"Invalid mood or folder does not exist: {mood}")
+    folder = mood_folders.get(mood.lower(), mood_folders['neutral'])
 
     images = get_images_from_folder(folder)
     if not images:
