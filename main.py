@@ -7,6 +7,7 @@ from termcolor import colored
 import os
 import text_processing as tp
 import image_selector
+from image_viewer import GridImageViewer
 
 TITLE = R"""$$\      $$\ $$\   $$\ $$$$$$$\  $$\      $$\ $$\   $$\ $$$$$$$\  
 $$$\    $$$ |$$ |  $$ |$$  __$$\ $$$\    $$$ |$$ |  $$ |$$  __$$\ 
@@ -58,12 +59,13 @@ class Input:
         elif len(user_input) > 0:
             user_wants_img = input("Do you want to provide your own image path for your message feelings?(y/N)").strip().lower()
             img_path = ""
-            if user_wants_img == "Y":
-                im_path = input("Provide path: ")
+            if user_wants_img == "y":
+                img_path = input("Provide path: ")
             else:
                 img_path = image_selector.select_image(tp.analyze_sentiment(user_input))
             
             print("This is image path: " + img_path)
+            viewer = GridImageViewer("images\\negative")
         return True
 
 def main():

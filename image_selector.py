@@ -6,6 +6,8 @@ import os
 import random
 from utils import list_files_in_folder
 
+VALID_IMG_EXT = (".png", ".jpg", ".jpeg", ".gif", ".bmp")
+
 def get_images_from_folder(folder: str) -> list[str]:
     """
     Get all images (png/jpg) from a folder.
@@ -13,7 +15,7 @@ def get_images_from_folder(folder: str) -> list[str]:
     return [
         os.path.join(folder, file)
         for file in os.listdir(folder)
-        if file.lower().endswith(('.png', '.jpg'))
+        if file.lower().endswith(VALID_IMG_EXT)
     ]
 
 def select_image(mood: str) -> str:
