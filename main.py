@@ -33,11 +33,17 @@ def clear_console():
         # Commands for Linux/macOS (posix)
         _ = os.system('clear')
 
+class NoExitArgumentParser(argparse.ArgumentParser):
+    def exit(self, status=0, message=None):
+        if message:
+            format_help = "\n".join([l for l in message.splitlines() if not "usage:" in l and len(l.strip()) > 0])
+            print(format_help)
+
 @dataclass
 class Input:
-    arg_parser: argparse.ArgumentParser
+    arg_parser: NoExitArgumentParser
     def __init__(self):
-        self.arg_parser = argparse.ArgumentParser(description="Unvail your feelings, start typing a message", add_help=False)
+        self.arg_parser = NoExitArgumentParser(description="Unvail your feelings, start typing a message", add_help=False)
         self.arg_parser.add_argument("--show", action='store_true', help="Shows recently posted image list...")
         #self.arg_parser.add_argument("--view", nargs=1, type=int, help="Select an image index to view.")
         self.arg_parser.add_argument("--clear", action='store_true', help="Clears the screen.")
