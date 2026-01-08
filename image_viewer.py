@@ -2,14 +2,21 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import os
 from image_selector import VALID_IMG_EXT
+import io
 
 def make_thumb(path, thumb_w: int, thumb_h: int):
     img = Image.open(path)
     img = img.resize((thumb_w, thumb_h), Image.Resampling.LANCZOS)
     return ImageTk.PhotoImage(img)
 
-def show_image(img):
-    pass
+def show_image(data: str | bytes):
+    if type(data) is str:
+        img = Image.open(data)
+        img.show()
+    elif type(data) is bytes:
+        image_file = io.BytesIO(data)
+        img = Image.open(image_file)
+        img.show()
 
 class GridImageViewer:
     # States
@@ -45,7 +52,7 @@ class GridImageViewer:
         self.root.title(title)
 
         self.grid_frame = tk.Frame(self.root)
-        self.grid_frame.pack(padx=10, pady=10)
+        self.grid_frame.pack(padx=10, pady=10, expand=True)
 
         nav_frame = tk.Frame(self.root)
         nav_frame.pack()
@@ -56,6 +63,7 @@ class GridImageViewer:
         self.next_btn.pack(side=tk.RIGHT, padx=10)
 
         self.show_page()
+        self.root.geometry("800x600")
         self.root.mainloop()
 
     def show_page(self):
