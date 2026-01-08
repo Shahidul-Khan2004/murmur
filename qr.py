@@ -112,7 +112,7 @@ def merge_qr_into_image(
 	qr_scale: float = 0.12,
 	margin_px: int = 16,
 	quiet_zone_px: int = 6,
-	qr_opacity: float = 0.4,
+	qr_opacity: float = 0.65,
 	plate_opacity: float = 0.70,
 	min_qr_px: int = 140,
 	output_format: str = "PNG",
